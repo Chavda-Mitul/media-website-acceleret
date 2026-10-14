@@ -1,0 +1,160 @@
+@import "tailwindcss";
+@config "../tailwind.config.ts";
+
+/*
+ * Runtime tokens, readable from GSAP tweens and inline styles.
+ * Brand colors are defined here once; tailwind.config.ts maps `tiny-*` utilities onto them.
+ * Fonts / type scale live in tailwind.config.ts.
+ */
+:root {
+  --background: #ffffff;
+  --foreground: #000000;
+
+  --tiny-yellow: #ffff47;
+  --tiny-light-yellow: #faff89;
+  --tiny-pink: #ff70a7;
+  --tiny-light-pink: #ffaed7;
+  --tiny-green: #35a755;
+  --tiny-light-green: #c2ebc3;
+  --tiny-blue: #00b5fb;
+  --tiny-light-blue: #b3d9fe;
+  --tiny-purple: #b58df0;
+  --tiny-light-purple: #e1e7ff;
+  --tiny-orange: #ff6f0a;
+  --tiny-light-orange: #feeadb;
+  --tiny-shipyard: #3670e1;
+  /* Translucent so the nav pill reads over both white sections and video. */
+  --tiny-pill: rgb(0 0 0 / 0.06);
+  --tiny-pill-hover: rgb(0 0 0 / 0.12);
+  --tiny-gray: #3f3f3f;
+
+  --gutter: 2rem;
+  --section-x: 5rem;
+  --ease-out-cubic: cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    @apply font-sans antialiased;
+    background: var(--background);
+    color: var(--foreground);
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display font-semibold;
+  }
+
+  img,
+  picture,
+  video,
+  canvas,
+  svg {
+    display: block;
+    max-width: 100%;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+
+  ::selection {
+    @apply bg-tiny-yellow text-tiny-black;
+  }
+}
+
+/*
+ * Masked text reveals: hidden below their mask before hydration so there is no flash;
+ * GSAP then animates them in. Reduced motion (and no-JS, see layout) shows them in place.
+ */
+[data-mask-word],
+[data-mask-line] {
+  transform: translateY(110%);
+}
+
+/* Navbar intro target: hidden until GSAP reveals it. */
+[data-nav-inner] {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-mask-word],
+  [data-mask-line] {
+    transform: none;
+  }
+
+  [data-nav-inner] {
+    visibility: visible;
+  }
+
+  [data-initial-loader] {
+    display: none;
+  }
+}
+
+/* Lenis — https://github.com/darkroomengineering/lenis#considerations */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/*
+ * Caption fade-up (lib/reveal.ts): held low and transparent until it scrolls into view.
+ * Reduced motion shows it in place; no-JS is handled where it's used (app/work/page.tsx).
+ */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(1rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+  }
+}
