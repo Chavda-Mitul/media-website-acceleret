@@ -1,8 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useRef } from "react";
-import { gsap, useGSAP } from "@/lib/gsap";
+import { useEffect, useRef } from "react";
+import type Lenis from "lenis";
+import { useLenis } from "lenis/react";
+import { gsap, ScrollTrigger, useGSAP } from "@/lib/gsap";
 import { EASE_REVEAL } from "@/lib/motion";
 import { SPECTRUM } from "@/lib/content/spectrum";
 
@@ -40,17 +42,17 @@ const EDGE_PAD = 0.061;
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
-/** Fraction of each card's scroll distance spent transitioning to the next (the rest holds focus). */
-const TRANSITION_SPAN = 0.5;
+/** Scroll progress held on the first / last card at each end of the pin, as on the reference. */
+const EDGE_HOLD = 0.012;
 
-/**
- * Maps a raw fractional index to one that dwells on each integer: the focused card holds full size
- * for most of its scroll distance, then eases to the next. Still continuous, so scrubbing never jumps.
- */
-function dwell(f: number) {
-  const k = Math.floor(f);
-  const t = gsap.utils.clamp(0, 1, (f - k - (1 - TRANSITION_SPAN) / 2) / TRANSITION_SPAN);
-  return k + t * t * (3 - 2 * t);
+/** Maps scroll progress in [0, 1] to a fractional focus index, linear between the end holds. */
+function toIndex(progress: number) {
+  return gsap.utils.clamp(0, 1, (progress - EDGE_HOLD) / (1 - 2 * EDGE_HOLD)) * (N - 1);
+}
+
+/** Inverse of `toIndex` for an integer card: the scroll progress at which card `k` settles in focus. */
+function progressOf(k: number) {
+  return k === 0 ? 0 : EDGE_HOLD + (k / (N - 1)) * (1 - 2 * EDGE_HOLD);
 }
 
 function lerpTable(table: SizeRow[], d: number): SizeRow {
@@ -72,36 +74,46 @@ type Stage = { w: number; h: number; scale: number; vertical: boolean };
 
 type Placement = { x: number; y: number; w: number; h: number; visible: boolean };
 
-/** Places every card for a scroll progress in [0, 1]. Continuous in `progress`, so scrubbing is smooth. */
-function layout(progress: number, stage: Stage): Placement[] {
+/**
+ * Slot starts along the scroll axis with card `k` settled in focus: sizes by integer distance from `k`,
+ * and the row shifted so the focused slot sits on a ramp from one edge inset (first card) to the other (last).
+ */
+function settledSlots(k: number, stage: Stage): number[] {
   const table = stage.vertical ? SIZE_MOBILE : SIZE_DESKTOP;
-  const f = dwell(progress * (N - 1));
-  const rows = Array.from({ length: N }, (_, i) => lerpTable(table, Math.abs(i - f)));
-
-  // Prefix-sum slot positions along the scroll axis.
   const pos: number[] = [];
   let acc = 0;
   for (let i = 0; i < N; i++) {
     pos[i] = acc;
     if (i < N - 1) {
-      const gapD = Math.min(Math.abs(i - f), Math.abs(i + 1 - f));
-      acc += (rows[i].box + lerpTable(table, gapD).gap) * stage.scale;
+      const gapD = Math.min(Math.abs(i - k), Math.abs(i + 1 - k));
+      acc += (lerpTable(table, Math.abs(i - k)).box + lerpTable(table, gapD).gap) * stage.scale;
     }
   }
 
-  // Shift the row so the fractional focus point glides from one edge inset to the other.
-  const k = Math.min(Math.floor(f), N - 2);
-  const focusPos = lerp(pos[k], pos[k + 1], f - k);
   const axis = stage.vertical ? stage.h : stage.w;
   const pad = EDGE_PAD * axis;
-  const target = pad + progress * (axis - 2 * pad - table[0].box * stage.scale);
-  const offset = target - focusPos;
+  const target = pad + (k / (N - 1)) * (axis - 2 * pad - table[0].box * stage.scale);
+  return pos.map((p) => p + target - pos[k]);
+}
 
-  return rows.map((row, i) => {
+/**
+ * Places every card for a fractional focus index `f`. Positions blend the two neighbouring settled
+ * layouts, so every card moves one way only (never drifts back); sizes follow the distance from `f`.
+ */
+function layout(f: number, stage: Stage): Placement[] {
+  const table = stage.vertical ? SIZE_MOBILE : SIZE_DESKTOP;
+  const a = Math.min(Math.floor(f), N - 1);
+  const b = Math.min(a + 1, N - 1);
+  const from = settledSlots(a, stage);
+  const to = settledSlots(b, stage);
+  const axis = stage.vertical ? stage.h : stage.w;
+
+  return Array.from({ length: N }, (_, i) => {
+    const row = lerpTable(table, Math.abs(i - f));
     const w = row.w * stage.scale;
     const h = row.h * stage.scale;
     const box = row.box * stage.scale;
-    const main = pos[i] + offset;
+    const main = lerp(from[i], to[i], f - a);
     const visible = main + box > -box && main < axis + box;
     return stage.vertical
       ? { x: (stage.w - w) / 2, y: main, w, h, visible }
@@ -118,6 +130,13 @@ export function EmotionalSpectrum() {
   const captionRef = useRef<HTMLDivElement>(null);
   const captionClientRef = useRef<HTMLSpanElement>(null);
   const captionEmotionRef = useRef<HTMLSpanElement>(null);
+
+  // Read lazily by the snap, so Lenis arriving after mount never rebuilds the timelines.
+  const lenis = useLenis();
+  const lenisRef = useRef<Lenis | undefined>(undefined);
+  useEffect(() => {
+    lenisRef.current = lenis;
+  }, [lenis]);
 
   useGSAP(
     () => {
@@ -200,8 +219,8 @@ export function EmotionalSpectrum() {
           };
 
           const render = (progress: number) => {
-            const placements = layout(progress, stage);
-            const f = dwell(progress * (N - 1));
+            const f = toIndex(progress);
+            const placements = layout(f, stage);
 
             placements.forEach((p, i) => {
               const sx = p.w / base.w;
@@ -224,27 +243,38 @@ export function EmotionalSpectrum() {
             setActive(index);
           };
 
-          // Scroll drives a proxy through a scrubbed tween, so wheel input is interpolated
-          // (scrub: 0.5 ≈ half a second of catch-up) on top of Lenis smoothing.
-          const proxy = { progress: 0 };
-          gsap.to(proxy, {
-            progress: 1,
-            ease: "none",
-            onUpdate: () => render(proxy.progress),
-            scrollTrigger: {
-              trigger: root.current,
-              start: "top top",
-              end: "bottom bottom",
-              scrub: 0.5,
-              onRefresh: () => {
-                measure();
-                render(proxy.progress);
-              },
+          // Once scrolling rests inside the pin, glide to the nearest card so one always settles in focus.
+          // The glide's own per-frame updates keep re-arming the timer, which then finds nothing to do.
+          let snapTimer: ReturnType<typeof setTimeout> | undefined;
+          const scheduleSnap = (self: ScrollTrigger) => {
+            if (reduceMotion || !lenisRef.current) return;
+            clearTimeout(snapTimer);
+            snapTimer = setTimeout(() => {
+              const lenis = lenisRef.current;
+              if (!lenis || !self.isActive) return;
+              const y = self.start + progressOf(Math.round(toIndex(self.progress))) * (self.end - self.start);
+              if (Math.abs(y - self.scroll()) < 1) return;
+              lenis.scrollTo(y, { duration: 0.5, easing: (t) => 1 - (1 - t) ** 3, lock: true });
+            }, 140);
+          };
+
+          // Scroll drives the layout directly; Lenis already smooths wheel input.
+          ScrollTrigger.create({
+            trigger: root.current,
+            start: "top top",
+            end: "bottom bottom",
+            onUpdate: (self) => {
+              render(self.progress);
+              scheduleSnap(self);
+            },
+            onRefresh: (self) => {
+              measure();
+              render(self.progress);
             },
           });
 
           measure();
-          render(proxy.progress);
+          render(0);
 
           if (reduceMotion) return;
 
@@ -263,7 +293,10 @@ export function EmotionalSpectrum() {
             )
             .from(q("[data-tick-inner]"), { scaleY: 0, duration: 0.8, ease: EASE_REVEAL, stagger: 0.02, force3D: true }, 0.2);
 
-          return () => wordSwap?.kill();
+          return () => {
+            wordSwap?.kill();
+            clearTimeout(snapTimer);
+          };
         },
       );
     },
