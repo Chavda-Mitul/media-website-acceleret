@@ -97,7 +97,16 @@ export function StickerStamps() {
   useEffect(() => {
     const host = layer.current?.parentElement;
     if (!host) return;
-    preload(0);
+
+    // Warm the first sticker once the visitor is within ~1.5 screens of the page end, not on load. (The footer is
+    // a sticky curtain behind <main>, so it always intersects the viewport: an IntersectionObserver can't tell.)
+    const warmFirst = () => {
+      if (window.scrollY + window.innerHeight * 2.5 < document.documentElement.scrollHeight) return;
+      window.removeEventListener("scroll", warmFirst);
+      preload(0);
+    };
+    window.addEventListener("scroll", warmFirst, { passive: true });
+    warmFirst();
 
     const onClick = (event: MouseEvent) => {
       const target = event.target as Element;
@@ -120,7 +129,10 @@ export function StickerStamps() {
     };
 
     host.addEventListener("click", onClick);
-    return () => host.removeEventListener("click", onClick);
+    return () => {
+      window.removeEventListener("scroll", warmFirst);
+      host.removeEventListener("click", onClick);
+    };
   }, []);
 
   return (

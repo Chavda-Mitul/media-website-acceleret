@@ -1,13 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type Lenis from "lenis";
 import { useLenis } from "lenis/react";
 import { gsap, ScrollTrigger, useGSAP } from "@/lib/gsap";
+import { onIntroCue } from "@/lib/motion";
 import { SPECTRUM } from "@/lib/content/spectrum";
 
 const N = SPECTRUM.length;
+/** Ms after the intro hands over before the card photos start loading, so the reel video gets a head start. */
+const WARM_AFTER_INTRO = 1200;
 
 // --- Layout engine -------------------------------------------------------------
 // Desktop numbers are the reference's own (its HomeHorizontalCards component); mobile ones were
@@ -192,6 +195,21 @@ export function EmotionalSpectrum() {
   const root = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const wordRef = useRef<HTMLSpanElement>(null);
+
+  // The photos sit far below the first screen, so they start lazy (nothing in the HTML head competes with the
+  // first screen) and all switch to eager a moment after the intro: the scrub moves cards in from off-screen
+  // faster than lazy loading could catch up, so every card must be loaded before the visitor gets here.
+  const [warm, setWarm] = useState(false);
+  useEffect(() => {
+    let timer = 0;
+    const off = onIntroCue("page", () => {
+      timer = window.setTimeout(() => setWarm(true), WARM_AFTER_INTRO);
+    });
+    return () => {
+      off();
+      window.clearTimeout(timer);
+    };
+  }, []);
 
   // Read lazily by the snap, so Lenis arriving after mount never rebuilds the timelines.
   const lenis = useLenis();
@@ -453,7 +471,7 @@ export function EmotionalSpectrum() {
                     src={item.image}
                     alt={`${item.client} — ${item.emotion}`}
                     fill
-                    loading="eager"
+                    loading={warm ? "eager" : "lazy"}
                     sizes="(min-width: 768px) 540px, 90vw"
                     className="object-cover transition-transform duration-500 ease-out-cubic group-hover:scale-110"
                   />

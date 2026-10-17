@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { preload } from "react-dom";
 import { gsap, useGSAP } from "@/lib/gsap";
+import { media } from "@/lib/media";
 import { EASE_REVEAL, onIntroCue } from "@/lib/motion";
 import { Button, PlayGlyph } from "@/components/ui/Button";
 import { MaskedWords } from "@/components/ui/MaskedWords";
@@ -10,7 +12,8 @@ import { ReelDialog } from "@/components/ui/ReelDialog";
 type Stat = { value: string; suffix?: string; label: string };
 
 type ParticleHeroProps = {
-  /** Logo in /public. Its first block of ink from the top (the mark, above any wordmark) is sampled in its own colours. */
+  /** Logo in /public. Its first block of ink from the top (the mark, above any wordmark) is sampled in its own colours.
+   * Defaults to the mark cropped out of /AM.png. */
   src?: string;
   /** Accessible name for the particle logo. */
   logoLabel?: string;
@@ -868,13 +871,16 @@ const PLAY_AREA_STYLE: CSSProperties = {
 };
 
 export function ParticleHero({
-  src = "/AM.png",
+  src = media.particleMark,
   logoLabel = "Acceleret Media",
   heading = DEFAULT_HEADING,
   tagline = DEFAULT_TAGLINE,
   stats = DEFAULT_STATS,
   recede = false,
 }: ParticleHeroProps) {
+  // The first screen is this mark, but it's only requested once the particle effect runs: list it in the HTML
+  // head so it downloads alongside the scripts.
+  preload(src, { as: "image", fetchPriority: "high" });
   const root = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const slotRef = useRef<HTMLDivElement>(null);
