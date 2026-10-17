@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 import { WorkHero } from "@/components/sections/WorkHero";
-import { WorkViews } from "@/components/sections/WorkViews";
-import { WorkGrid } from "@/components/sections/WorkGrid";
-import { Footer } from "@/components/sections/Footer";
+import { ProjectGallery } from "@/components/projects/ProjectGallery";
+import { PROJECTS } from "@/lib/content/projects";
 
 export const metadata: Metadata = {
-  title: "Work | Media Website",
+  title: "Work",
   description: "Selected case studies and snapshots from the studio.",
 };
 
+// The Grid ⇄ Filmstrip views (components/sections/WorkViews, WorkGrid, WorkFilmstrip) are kept but not
+// mounted; swap <ProjectGallery> back for <WorkViews grid={<WorkGrid />} /> to restore them.
 export default function WorkPage() {
   return (
     <>
@@ -19,10 +20,8 @@ export default function WorkPage() {
       {/* z-10 + solid background: <main> scrolls away over the sticky footer (curtain reveal). */}
       <main className="relative z-10 bg-tiny-white">
         <WorkHero />
-        {/* Server-rendered grid; the client wrapper adds the view toggle and lazy filmstrip. */}
-        <WorkViews grid={<WorkGrid />} />
+        <ProjectGallery projects={PROJECTS} />
       </main>
-      <Footer />
     </>
   );
 }

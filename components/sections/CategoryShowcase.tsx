@@ -13,6 +13,7 @@ const PARALLAX = 0.1;
 /** Title block under each desktop card: 18px margin + 21.6px line. */
 const TITLE_BLOCK = 40;
 
+// Text colours are inherited from the root (never set per element), so each theme is one class on the root.
 export function CategoryShowcase({ theme }: { theme: Theme }) {
   const showcase = theme === "light" ? SHOWCASES.vital : SHOWCASES.futureProof;
   const dark = theme === "dark";
@@ -133,21 +134,22 @@ export function CategoryShowcase({ theme }: { theme: Theme }) {
     <section
       ref={root}
       aria-label={showcase.heading}
-      // Dark theme: the navbar switches to its frosted-white pills over this section.
+      // The navbar switches to its frosted-white pills over this section.
       data-nav-theme={dark ? "media" : undefined}
       className={`relative flex w-full flex-col overflow-hidden md:h-screen ${
         dark ? "bg-tiny-black text-tiny-white" : "bg-tiny-white text-tiny-black"
       }`}
     >
-      <div className={`shrink-0 px-6 md:px-section-x ${dark ? "pt-10 md:pt-[clamp(72px,12vh,136px)]" : ""}`}>
-        {dark && <div aria-hidden="true" className="relative left-1/2 h-px w-dvw max-w-none -translate-x-1/2 bg-white/10" />}
+      {/* Both themes open the same way: breathing room, a full-bleed hairline, then the title row. */}
+      <div className="shrink-0 px-gutter pt-10 md:pt-[clamp(72px,12vh,136px)]">
+        <div aria-hidden="true" className="relative left-1/2 h-px w-dvw max-w-none -translate-x-1/2 bg-current/10" />
         <div className="mt-5 flex flex-col items-start gap-3 md:mt-[clamp(20px,3vh,31px)] md:flex-row md:justify-between md:gap-8">
-          <h2 data-showcase-lines="" className="font-display text-showcase font-semibold uppercase">
+          <h2 data-showcase-lines="" className="font-serif text-statement font-normal">
             {showcase.heading}
           </h2>
           <p
             data-showcase-lines=""
-            className="w-full pe-12 font-serif text-[0.875rem] leading-[1.3] tracking-tight-2 md:max-w-102 md:pe-0 md:text-[1.25rem]"
+            className="w-full pe-12 font-serif text-serif-sm tracking-tight-1 md:max-w-102 md:pe-0"
           >
             {showcase.body}
           </p>
@@ -161,7 +163,7 @@ export function CategoryShowcase({ theme }: { theme: Theme }) {
         aria-label={`${showcase.heading} projects`}
         className="mt-14 flex min-h-0 grow select-none items-start overflow-x-clip pb-[calc(env(safe-area-inset-bottom)+6rem)] md:mt-[clamp(40px,9vh,110px)] md:pb-35.75"
       >
-        <div ref={trackRef} className="relative flex w-max items-start gap-5.5 px-6 will-change-transform md:px-section-x">
+        <div ref={trackRef} className="relative flex w-max items-start gap-5.5 px-gutter will-change-transform">
           {showcase.items.map((item) => (
             <a
               key={item.name}
@@ -185,7 +187,7 @@ export function CategoryShowcase({ theme }: { theme: Theme }) {
                   />
                 </div>
               </div>
-              <h3 className="mt-3 text-[1rem] leading-[1.2] tracking-tight-2 md:mt-4.5 md:text-[1.125rem]">{item.name}</h3>
+              <h3 className="mt-3 text-sub-2 tracking-tight-2 md:mt-4.5 md:text-sub-1">{item.name}</h3>
             </a>
           ))}
         </div>

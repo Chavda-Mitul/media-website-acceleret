@@ -2,35 +2,38 @@
 @config "../tailwind.config.ts";
 
 /*
- * Runtime tokens, readable from GSAP tweens and inline styles.
- * Brand colors are defined here once; tailwind.config.ts maps `tiny-*` utilities onto them.
+ * Runtime tokens, readable from inline styles; tailwind.config.ts maps utilities onto them.
  * Fonts / type scale live in tailwind.config.ts.
+ *
+ * The homepage is one sheet of paper over a black stage: ink (tiny-black) and paper (tiny-white) are the
+ * two tones, and the logo's play-triangle blue (tiny-brand) is the only accent.
  */
 :root {
   --background: #ffffff;
   --foreground: #000000;
 
-  --tiny-yellow: #ffff47;
-  --tiny-light-yellow: #faff89;
-  --tiny-pink: #ff70a7;
-  --tiny-light-pink: #ffaed7;
-  --tiny-green: #35a755;
-  --tiny-light-green: #c2ebc3;
-  --tiny-blue: #00b5fb;
-  --tiny-light-blue: #b3d9fe;
-  --tiny-purple: #b58df0;
+  --tiny-brand: #0064f5;
+  /* Case-study chips (components/projects). */
   --tiny-light-purple: #e1e7ff;
-  --tiny-orange: #ff6f0a;
-  --tiny-light-orange: #feeadb;
-  --tiny-shipyard: #3670e1;
   /* Translucent so the nav pill reads over both white sections and video. */
   --tiny-pill: rgb(0 0 0 / 0.06);
   --tiny-pill-hover: rgb(0 0 0 / 0.12);
   --tiny-gray: #3f3f3f;
 
-  --gutter: 2rem;
-  --section-x: 5rem;
+  /* One side gutter for every section: 24px, then 80px from md (the same as the /work pages). */
+  --gutter: 1.5rem;
+  /* Vertical rhythm: chapter openers, and blocks inside a section. */
+  --space-section: clamp(5rem, 10vw, 10rem);
+  --space-rhythm: clamp(2.5rem, 5vw, 5rem);
+  /* Chapter edges (components/ui/SheetEdge.tsx): the sheet's rounded corner. */
+  --radius-sheet: clamp(1.25rem, 2.5vw, 2.5rem);
   --ease-out-cubic: cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+@media (min-width: 768px) {
+  :root {
+    --gutter: 5rem;
+  }
 }
 
 @layer base {
@@ -50,6 +53,8 @@
     background: var(--background);
     color: var(--foreground);
     text-rendering: optimizeLegibility;
+    /* Only real weights/styles: an upright-only face (Newsreader) never gets a faux italic. */
+    font-synthesis: none;
   }
 
   h1,
@@ -77,8 +82,16 @@
   }
 
   ::selection {
-    @apply bg-tiny-yellow text-tiny-black;
+    @apply bg-tiny-brand text-tiny-white;
   }
+}
+
+/*
+ * Newsreader's space is narrow (0.22em) and it kerns into it from both sides, so sentence breaks close up
+ * ("living. We"). A touch more word space reopens them; letter pairs keep their kerning.
+ */
+.font-serif {
+  word-spacing: 0.05em;
 }
 
 /*
@@ -156,5 +169,79 @@ html.lenis body {
   [data-reveal] {
     opacity: 1;
     transform: none;
+  }
+}
+
+/*
+ * Project cover morph (components/projects/ProjectMedia.tsx). Navigations tagged "project-morph" grow a
+ * cover from the gallery card, or the "Keep scrolling" preview, into the case-study hero via React's
+ * <ViewTransition>. Untagged navigations don't start a view transition at all.
+ */
+
+/* Clicks pass through to the live page while a transition plays. */
+::view-transition {
+  pointer-events: none;
+}
+
+/* expo.out, the site's EASE_REVEAL. */
+::view-transition-group(.project-morph) {
+  animation-duration: 700ms;
+  animation-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+/* Card and hero have different aspect ratios: fill the moving box instead of overflowing it. */
+::view-transition-old(.project-morph),
+::view-transition-new(.project-morph) {
+  height: 100%;
+  object-fit: cover;
+}
+
+/* A brief blur hides the scaling artefacts mid-flight. */
+::view-transition-image-pair(.project-morph) {
+  animation-name: project-morph-blur;
+}
+
+@keyframes project-morph-blur {
+  30% {
+    filter: blur(3px);
+  }
+}
+
+/* The rest of the page: the old one leaves quickly, the new one settles in under the cover. */
+::view-transition-old(root) {
+  animation: 250ms ease-out both project-page-fade reverse;
+}
+
+::view-transition-new(root) {
+  animation: 350ms ease-out 150ms both project-page-fade;
+}
+
+@keyframes project-page-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The navbar (components/ui/Navbar.tsx) stays put, above the morphing cover. */
+::view-transition-group(site-header) {
+  animation: none;
+  z-index: 100;
+}
+
+::view-transition-old(site-header) {
+  display: none;
+}
+
+::view-transition-new(site-header) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*),
+  ::view-transition-image-pair(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
   }
 }

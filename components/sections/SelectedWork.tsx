@@ -5,7 +5,8 @@ import { useRef } from "react";
 import { gsap, ScrollTrigger, useGSAP } from "@/lib/gsap";
 import { EASE_REVEAL } from "@/lib/motion";
 import { ALL_WORK, WORK, type WorkItem } from "@/lib/content/work";
-import { BentArrow } from "@/components/ui/BentArrow";
+import { ArrowLink } from "@/components/ui/ArrowLink";
+import { SectionLabel } from "@/components/ui/SectionLabel";
 import { WorkVideo } from "@/components/ui/WorkVideo";
 
 function WorkCard({ item, sizes }: { item: WorkItem; sizes: string }) {
@@ -41,7 +42,7 @@ function WorkCard({ item, sizes }: { item: WorkItem; sizes: string }) {
           </div>
         </div>
 
-        <div className="mt-4 flex flex-col items-baseline font-semibold leading-[1.2] tracking-tight-2 md:mt-3 md:flex-row md:gap-6 md:text-sub-1">
+        <div className="mt-4 flex flex-col items-baseline font-display text-sub-2 font-semibold tracking-tight-2 md:mt-3 md:flex-row md:gap-6 md:text-sub-1">
           <h3>{item.client}</h3>
           <span className="text-tiny-muted">{item.title}</span>
         </div>
@@ -55,22 +56,18 @@ function AllWorkLink({ className = "" }: { className?: string }) {
     <div className={className}>
       <span className="block overflow-hidden">
         <span data-all-work="" className="block">
-          {/* Text size lives on the link so the arrow's 1lh height matches the 32px label */}
-          <a
+          <ArrowLink
+            size="lg"
             href={ALL_WORK.href}
-            className="group inline-flex items-center gap-2 font-display text-[1.25rem] font-semibold leading-none tracking-tight-5 text-tiny-black focus-visible:outline-2 focus-visible:outline-offset-4 md:text-h4"
-          >
-            <BentArrow />
-            <span className="flex items-start gap-1">
-              <span className="relative after:absolute after:-bottom-1 after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-current after:transition-[scale] after:duration-500 after:ease-out-cubic group-hover:after:scale-x-100">
-                {ALL_WORK.label}
-              </span>
-              <span className="font-sans text-[0.625rem] font-normal leading-[1.2] tracking-normal">
+            aside={
+              <span className="-ml-1.5 self-start font-sans text-cap-2 font-normal tracking-normal">
                 {ALL_WORK.count}
                 <span className="sr-only"> projects</span>
               </span>
-            </span>
-          </a>
+            }
+          >
+            {ALL_WORK.label}
+          </ArrowLink>
         </span>
       </span>
     </div>
@@ -126,9 +123,20 @@ export function SelectedWork() {
   );
 
   return (
-    <section ref={root} aria-label="Selected work" className="relative w-full bg-tiny-white px-6 pb-16 md:px-section-x md:pb-24">
-      <h2 className="sr-only">Selected work</h2>
+    <section ref={root} aria-labelledby="selected-work-heading" className="relative w-full bg-tiny-white px-gutter pb-16 pt-section md:pb-24">
+      {/* Opens the work chapter: the client logos above lead straight into it. */}
+      <header className="mx-auto mb-6 max-w-[120rem] md:mb-12">
+        {/* The count rides as a superscript, like "All work⁵⁵" at the end of the grid. */}
+        <SectionLabel as="h2" id="selected-work-heading">
+          Selected work
+          <sup className="ml-0.5 font-normal">
+            {ALL_WORK.count}
+            <span className="sr-only"> projects</span>
+          </sup>
+        </SectionLabel>
+      </header>
       <div className="mx-auto flex max-w-[120rem] flex-col gap-6 md:gap-30">
+
         {/* Row 1: wide + narrow, top-aligned */}
         <div className="flex flex-col gap-6 md:grid md:grid-cols-[730fr_518fr] md:items-start md:gap-4">
           <WorkCard item={WORK.cottonball} sizes="(min-width: 768px) 58vw, 100vw" />

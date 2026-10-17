@@ -5,7 +5,7 @@ import { gsap, useGSAP } from "@/lib/gsap";
 import { EASE_REVEAL, PAGE_REVEAL_OFFSET, onIntroCue } from "@/lib/motion";
 
 const LINES_DESKTOP = ["Designing for feelings"];
-const LINES_MOBILE = ["Designing", "Feelings"];
+const LINES_MOBILE = ["Designing", "feelings"];
 
 function MaskedLines({ lines, className }: { lines: string[]; className: string }) {
   return (
@@ -22,9 +22,10 @@ function MaskedLines({ lines, className }: { lines: string[]; className: string 
 }
 
 // Sized in container query units so the line always spans the column, like the reference.
-// Calibrated for Inter Tight to match the reference's measured line widths (98% of the column on
-// desktop, "Designing" at 94% on mobile); its Suisse sizes are 8.5cqw / 18.5cqw. The bottom padding
-// is trimmed by the extra glyph height so the work starts at the same y as the reference (478px).
+// A statement, so it's in the serif (Newsreader 400, sentence case), calibrated to the reference's measured
+// line widths: 98% of the column on desktop, "Designing" at 94% on mobile. The bottom padding
+// is tightened for the project carousel, so its card row fits above the fold at 1080px. (The old
+// grid used pb-[156px] / md:pb-[264px] so the work started at the reference's y of 478px.)
 export function WorkHero() {
   const root = useRef<HTMLElement>(null);
 
@@ -53,12 +54,14 @@ export function WorkHero() {
 
   return (
     <section ref={root} className="px-6 pt-24 md:px-section-x md:pt-28">
-      <div className="mx-auto max-w-[1761px] pb-[156px] [container-type:inline-size] md:pb-[264px]">
-        <h1 className="text-center font-display font-semibold uppercase leading-crush">
-          <MaskedLines lines={LINES_MOBILE} className="block text-[20.1cqw] tracking-[-0.05em] md:hidden" />
+      <div className="mx-auto max-w-[1761px] pb-20 [container-type:inline-size] md:pb-24">
+        {/* Leading just over 1, so the line masks keep the g's descenders. */}
+        <h1 className="text-center font-serif font-normal leading-[1.05]">
+          {/* Tracking sits with the font size: an em on the h1 would resolve against the h1's own size. */}
+          <MaskedLines lines={LINES_MOBILE} className="block text-[21.96cqw] tracking-[-0.02em] md:hidden" />
           <MaskedLines
             lines={LINES_DESKTOP}
-            className="hidden whitespace-nowrap text-[9.24cqw] tracking-[-0.06em] md:block"
+            className="hidden whitespace-nowrap text-[10.59cqw] tracking-[-0.02em] md:block"
           />
         </h1>
       </div>

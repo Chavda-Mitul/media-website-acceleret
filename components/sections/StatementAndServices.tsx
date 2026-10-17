@@ -7,13 +7,31 @@ import { gsap, ScrollTrigger, SplitText, useGSAP } from "@/lib/gsap";
 import { EASE_REVEAL } from "@/lib/motion";
 import { SERVICES, STATEMENT } from "@/lib/content/services";
 import { LogoGrid } from "@/components/ui/LogoGrid";
+import { SectionLabel } from "@/components/ui/SectionLabel";
 
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 /** Fraction of the pinned scroll used to step through the services; the rest holds the last one. */
 const STEP_SPAN = 0.9;
+/** Space opened above the active service once the list has scrolled past the first one. */
+const ROW_GAP_PX = 24;
+/** Services further than this above the active one fade out completely. */
+const FADE_AFTER = 3;
 
 const activeForProgress = (progress: number) =>
   Math.min(SERVICES.length - 1, Math.floor((progress / STEP_SPAN) * SERVICES.length));
+
+/** List offset that brings service `index` level with the "Our services" label. offsetTop ignores the gap transform. */
+function listOffset(list: HTMLElement, index: number) {
+  const [first, second] = list.children as HTMLCollectionOf<HTMLElement>;
+  const pitch = second.offsetTop - first.offsetTop;
+  return -(index * pitch + (index > 0 ? ROW_GAP_PX : 0));
+}
+
+function serviceTone(index: number, active: number) {
+  if (index === active) return "text-tiny-black";
+  if (active - index > FADE_AFTER) return "text-transparent";
+  return "text-tiny-faint hover:text-tiny-black/40";
+}
 
 const prefersReducedMotion = () => window.matchMedia(REDUCED_MOTION).matches;
 
@@ -35,9 +53,13 @@ function revealStatement(el: HTMLElement) {
   });
 }
 
-function Statement({ className = "" }: { className?: string }) {
+function Statement({ indent = false, className = "" }: { indent?: boolean; className?: string }) {
   return (
-    <h2 data-statement="" className={`font-display text-statement font-semibold uppercase ${className}`}>
+    <h2 data-statement="" className={`font-serif text-statement font-normal text-pretty ${className}`}>
+      {/* Desktop: the first line starts on the services column below (where the numbers begin): the services
+          grid's first column (1fr of its 5fr, after three 24px gaps and the 233px image) plus one gap. Keep in
+          step with that grid. A spacer, not text-indent: SplitText's word boxes would inherit the indent. */}
+      {indent && <span aria-hidden="true" className="inline-block w-[calc((100%-4.5rem-14.5625rem)/5+1.5rem)]" />}
       {STATEMENT}
     </h2>
   );
@@ -59,7 +81,9 @@ function DesktopStatementServices() {
   const root = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<ScrollTrigger | null>(null);
   const firstRender = useRef(true);
+  const listRef = useRef<HTMLOListElement>(null);
   const [active, setActive] = useState(0);
+  const activeRef = useRef(0);
   const lenis = useLenis();
 
   useGSAP(
@@ -73,6 +97,10 @@ function DesktopStatementServices() {
           start: "top top",
           end: "bottom bottom",
           onUpdate: (self) => setActive(activeForProgress(self.progress)),
+          // The service size is fluid, so re-measure the row pitch on resize.
+          onRefresh: () => {
+            if (listRef.current) gsap.set(listRef.current, { y: listOffset(listRef.current, activeRef.current) });
+          },
         });
         return () => {
           triggerRef.current = null;
@@ -94,12 +122,23 @@ function DesktopStatementServices() {
     { scope: root },
   );
 
-  // Active service: clip-reveal its image (stacked over the previous ones) and swap the sub-services.
+  // Active service: scroll the list so it sits level with the label, clip-reveal its image
+  // (stacked over the previous ones) and swap the sub-services.
   useGSAP(
     () => {
       const q = gsap.utils.selector(root);
       const instant = firstRender.current || prefersReducedMotion();
       firstRender.current = false;
+      activeRef.current = active;
+
+      if (listRef.current) {
+        gsap.to(listRef.current, {
+          y: listOffset(listRef.current, active),
+          duration: instant ? 0 : 0.4,
+          ease: "power2.out",
+          overwrite: true,
+        });
+      }
 
       q("[data-service-image]").forEach((el, i) => {
         const open = i <= active;
@@ -142,29 +181,31 @@ function DesktopStatementServices() {
         aria-label="Brand statement and services"
         className="sticky top-0 flex h-screen w-full flex-col overflow-hidden bg-tiny-white"
       >
-        <div className="absolute inset-x-0 top-0 border-t border-tiny-black" />
-
-        <div className="flex-1 border border-tiny-black px-section-x">
-          <Statement className="mt-10" />
+        {/* Hairlines (ink/10) above and below the statement, as everywhere on the page. Opaque and on top,
+            so the service rows that scroll up past the active one slide under the statement, not over it. */}
+        <div className="relative z-10 flex-1 border-t border-tiny-black/10 bg-tiny-white px-gutter">
+          <Statement indent className="mt-10" />
         </div>
 
-        <div className="w-full shrink-0 border-t border-black/10" />
+        <div className="w-full shrink-0 border-t border-tiny-black/10" />
 
-        <div data-services="" className="shrink-0 px-section-x pb-8 pt-2.5">
+        <div data-services="" className="shrink-0 px-gutter pb-8 pt-2.5">
           <div className="grid grid-cols-[1fr_3fr_14.5625rem_1fr] items-start gap-x-6">
-            <p className="text-cap-2 tracking-tight-1">Our services</p>
+            <SectionLabel>Our services</SectionLabel>
 
-            <ol className="flex flex-col">
+            <ol ref={listRef} className="flex flex-col will-change-transform">
               {SERVICES.map((service, i) => (
-                <li key={service.name} className="overflow-hidden">
+                <li
+                  key={service.name}
+                  className="overflow-hidden"
+                  style={active > 0 && i >= active ? { transform: `translateY(${ROW_GAP_PX}px)` } : undefined}
+                >
                   <button
                     type="button"
                     data-service-row=""
                     onClick={() => goTo(i)}
                     aria-current={i === active ? "true" : undefined}
-                    className={`grid grid-cols-[0.6em_auto] gap-x-[35px] text-left font-display text-service font-semibold transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-4 ${
-                      i === active ? "text-tiny-black" : "text-tiny-faint hover:text-tiny-black/40"
-                    }`}
+                    className={`grid grid-cols-[0.6em_auto] gap-x-[35px] text-left font-display text-display-3 font-semibold transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-4 ${serviceTone(i, active)}`}
                   >
                     <span>{i + 1}</span>
                     <span className="whitespace-nowrap">{service.name}</span>
@@ -173,7 +214,7 @@ function DesktopStatementServices() {
               ))}
             </ol>
 
-            <div className="relative h-70 w-58.25 overflow-hidden rounded-lg bg-neutral-100">
+            <div className="relative h-70 w-58.25 overflow-hidden rounded-lg bg-tiny-black/5">
               {SERVICES.map((service, i) => (
                 <div
                   key={service.name}
@@ -205,7 +246,7 @@ function DesktopStatementServices() {
           </div>
         </div>
 
-        <div className="shrink-0 px-section-x py-4">
+        <div className="shrink-0 px-gutter py-4">
           <LogoGrid />
         </div>
       </section>
@@ -261,12 +302,12 @@ function MobileStatementServices() {
 
   return (
     <section ref={root} aria-label="Brand statement and services" className="bg-tiny-white pb-12 md:hidden">
-      <div className="mt-4 w-full border-t border-black/10" />
-      <Statement className="px-4 pt-4" />
+      <div className="mt-4 w-full border-t border-tiny-black/10" />
+      <Statement className="px-gutter pt-4" />
 
-      <div className="mt-18 px-4.5">
-        <p className="ml-14 text-cap-2 tracking-tight-1">Our services</p>
-        <ul className="-mx-4.5 mt-1.75 border-t border-black/10 px-4.5 pt-4">
+      <div className="mt-18 px-gutter">
+        <SectionLabel className="ml-14">Our services</SectionLabel>
+        <ul className="-mx-gutter mt-1.75 border-t border-tiny-black/10 px-gutter pt-4">
           {SERVICES.map((service, i) => {
             const isOpen = i === open;
             return (
@@ -276,7 +317,7 @@ function MobileStatementServices() {
                   onClick={() => setOpen((current) => (current === i ? -1 : i))}
                   aria-expanded={isOpen}
                   aria-controls={`service-panel-${i}`}
-                  className={`grid w-full grid-cols-[40px_minmax(0,1fr)] gap-x-4 py-2 text-left font-display text-service font-semibold transition-colors duration-150 focus-visible:outline-2 ${
+                  className={`grid w-full grid-cols-[40px_minmax(0,1fr)] gap-x-4 py-2 text-left font-display text-display-3 font-semibold transition-colors duration-150 focus-visible:outline-2 ${
                     isOpen ? "text-tiny-black" : "text-tiny-faint"
                   }`}
                 >
@@ -299,7 +340,7 @@ function MobileStatementServices() {
         </ul>
       </div>
 
-      <div className="mt-10 px-6">
+      <div className="mt-10 px-gutter">
         <LogoGrid />
       </div>
     </section>

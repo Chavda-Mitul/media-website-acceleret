@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useLenis } from "lenis/react";
 import { gsap } from "@/lib/gsap";
 import { media } from "@/lib/media";
+import { Button } from "@/components/ui/Button";
 
 type ReelDialogProps = {
   open: boolean;
@@ -68,13 +69,9 @@ export function ReelDialog({ open, onClose }: ReelDialogProps) {
           />
         </div>
       </div>
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute right-4 top-4 rounded-lg border-[0.8px] border-white/20 bg-white/10 px-4 py-2 text-cap-1 tracking-tight-1 backdrop-blur-[15px] transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:right-6 md:top-6"
-      >
+      <Button tone="glass" size="sm" onClick={onClose} className="absolute right-4 top-4 md:right-6 md:top-6">
         Close
-      </button>
+      </Button>
     </dialog>
   );
 }

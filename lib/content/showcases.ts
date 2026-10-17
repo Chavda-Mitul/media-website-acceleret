@@ -17,7 +17,7 @@ const PORTRAIT = 920 / 1190;
 
 export const SHOWCASES: Record<"vital" | "futureProof", Showcase> = {
   vital: {
-    heading: "Feeling Vital",
+    heading: "Feeling vital",
     body: "Beauty. Wellness. Healthy living. We turn differentiation into desire and brands into category leaders.",
     items: [
       { name: "Cottonball", image: img("7236fa690b9fab339eaea851a302a9ab8e6c5b05-1599x1185.jpg"), aspect: 1599 / 1185, href: "#work" },
@@ -29,7 +29,7 @@ export const SHOWCASES: Record<"vital" | "futureProof", Showcase> = {
     ],
   },
   futureProof: {
-    heading: "Feeling Future-proof",
+    heading: "Feeling future-proof",
     body: "Industrial. Intelligence. Defense. We turn market-edge technology into clarity, credibility, and narrative power.",
     items: [
       { name: "Shield AI", image: img("7a11de995a0e03a1eccf347058295dd8c613315a-1600x1186.jpg"), aspect: LANDSCAPE, href: "#work" },
@@ -46,7 +46,7 @@ export type InfoPanel = { label: string; body: string; href: string; image: stri
 export const INFO_PANELS: [InfoPanel, InfoPanel] = [
   {
     label: "About us",
-    body: "We started small, stacking tiny wins one by one. Today, we’re a mighty team across strategy, creative, design, and development.",
+    body: "We started small and kept accelerating, one launch at a time. Today, we’re a mighty team across strategy, creative, design, and development.",
     href: "#about",
     image: img("ebe427d938375a1951c48dad67bd14c85e394adc-1280x854.jpg"),
   },

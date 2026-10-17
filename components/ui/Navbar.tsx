@@ -44,10 +44,12 @@ export function Navbar() {
     () => {
       const active = new Set<Element>();
       document.querySelectorAll('[data-nav-theme="media"]').forEach((el) => {
+        // The curtain footer is sticky (its rect moves with scroll): it's under the header once <main> scrolls past.
+        const curtain = getComputedStyle(el).position === "sticky" ? document.querySelector("main") : null;
         ScrollTrigger.create({
-          trigger: el,
-          start: `top ${HEADER_LINE}`,
-          end: `bottom ${HEADER_LINE}`,
+          trigger: curtain ?? el,
+          start: curtain ? `bottom ${HEADER_LINE}` : `top ${HEADER_LINE}`,
+          end: curtain ? "max" : `bottom ${HEADER_LINE}`,
           onToggle: (self) => {
             if (self.isActive) active.add(el);
             else active.delete(el);
@@ -114,7 +116,7 @@ export function Navbar() {
           };
         }
 
-        // Starts just after the Hero's first headline line so both read as one sequence.
+        // Starts just after the page hero's first headline line (PAGE_REVEAL_OFFSET) so both read as one sequence.
         const intro = gsap
           .timeline({ paused: true, delay: PAGE_REVEAL_OFFSET + 0.25 })
           .fromTo(
@@ -139,6 +141,8 @@ export function Navbar() {
   return (
     <header
       ref={root}
+      // Its own view-transition layer, held still above a morphing project cover (see globals.css).
+      style={{ viewTransitionName: "site-header" }}
       className={`fixed inset-x-0 top-0 z-header transition-transform duration-300 ease-in-out focus-within:translate-y-0 ${
         hidden && !menuOpen && !contactOpen ? "-translate-y-full" : "translate-y-0"
       }`}
@@ -206,7 +210,7 @@ export function Navbar() {
           className={`${PILL} ${pillBg} ${pillHover} relative flex h-10 shrink-0 cursor-pointer items-center justify-center px-2.5 sm:h-12 sm:w-[114px] sm:px-0 ${FOCUS}`}
         >
           <span className="text-cap-2 leading-5 font-medium tracking-tight-1 sm:text-cap-1">Latest Wins</span>
-          <span aria-hidden="true" className="absolute right-2 top-2 size-[7px] rounded-full bg-red-500" />
+          <span aria-hidden="true" className="absolute right-2 top-2 size-[7px] rounded-full bg-tiny-brand" />
         </button>
       </div>
 

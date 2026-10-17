@@ -3,7 +3,7 @@
 const img = (file: string) => `/assets/images/${file}`;
 const logo = (hash: string) => `/assets/logos/${hash}-200x100.svg`;
 
-export const STATEMENT = "TinyWins is a global feelings studio that builds obsession-worthy brands for the modern age.";
+export const STATEMENT = "Acceleret Media is a global feelings studio that builds obsession-worthy brands for the modern age.";
 
 export type Service = { name: string; subs: string[]; image: string };
 

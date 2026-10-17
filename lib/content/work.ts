@@ -1,4 +1,4 @@
-// Selected Work + Shipyard banner, in the reference site's order.
+// Selected Work + brand banner, in the reference site's order.
 // Placeholder content (clients, copy, imagery) from the reference site — replace with your own.
 import { media } from "@/lib/media";
 
@@ -53,11 +53,10 @@ export const WORK: Record<"cottonball" | "amesa" | "shieldAi" | "freegame" | "mi
   },
 };
 
-export const ALL_WORK = { label: "All Work", count: 55, href: "/work" };
+export const ALL_WORK = { label: "All work", count: 55, href: "/work" };
 
-export const SHIPYARD = {
-  heading: ["Independent by nature.", "Backed by Shipyard."],
-  body: "An independent creative studio within Shipyard, crafting thoughtful identities, campaigns, and experiences for ambitious brands.",
-  link: { label: "Explore Shipyard", href: "#" },
-  logo: "/assets/logos/shipyard-logo.svg",
+export const BRAND_BANNER = {
+  heading: ["Independent by nature.", "Accelerated by design."],
+  body: "Acceleret Media is an independent creative studio crafting thoughtful identities, campaigns, and experiences for ambitious brands.",
+  link: { label: "Explore Acceleret Media", href: "#about" },
 };

@@ -3,9 +3,10 @@
 import Image from "next/image";
 import { useRef } from "react";
 import { gsap, useGSAP } from "@/lib/gsap";
-import { EASE_REVEAL } from "@/lib/motion";
+import { EASE_REVEAL, SHEET_ARRIVE, sheetArrive } from "@/lib/motion";
 import { INFO_PANELS, type InfoPanel } from "@/lib/content/showcases";
-import { BentArrow } from "@/components/ui/BentArrow";
+import { ArrowLink } from "@/components/ui/ArrowLink";
+import { SectionLabel } from "@/components/ui/SectionLabel";
 
 /** Scroll window (fraction of the pinned range) in which Approach wipes up over About. */
 const WIPE_START = 0.12;
@@ -13,25 +14,16 @@ const WIPE_END = 0.5;
 
 function PanelText({ panel }: { panel: InfoPanel }) {
   return (
-    // Same font size on the wrapper so the 5em indents line up across label, body and link.
-    <div className="absolute inset-x-4 top-[39%] font-display text-[1.25rem] font-semibold leading-none tracking-[-0.03em] md:left-[50.4%] md:right-[4.17%] md:text-about">
-      <p data-info-item="" className="text-white/30 md:indent-[5em]">
-        {panel.label}
-      </p>
-      <p data-info-item="" className="mt-[0.15em] text-white md:indent-[5em]">
+    // Right half on desktop, its right edge on the page gutter.
+    <div className="absolute inset-x-gutter top-[39%] text-tiny-white md:left-[50.4%]">
+      <SectionLabel data-info-item="">{panel.label}</SectionLabel>
+      <p data-info-item="" className="mt-5 text-pretty font-serif text-statement-sm">
         {panel.body}
       </p>
-      <div data-info-item="" className="mt-[1.55em] md:mt-6 md:pl-[5em]">
-        <a
-          href={panel.href}
-          aria-label={`Learn more: ${panel.label}`}
-          className="group inline-flex items-center gap-2 font-sans text-[0.75rem] font-normal capitalize leading-[1.2] tracking-tight-1 text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white md:text-[0.9rem]"
-        >
-          <BentArrow size="sm" />
-          <span className="relative after:absolute after:-bottom-0.5 after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-current after:transition-[scale] after:duration-500 after:ease-out-cubic group-hover:after:scale-x-100">
-            Learn more
-          </span>
-        </a>
+      <div data-info-item="" className="mt-6">
+        <ArrowLink href={panel.href} aria-label={`Learn more: ${panel.label}`}>
+          Learn more
+        </ArrowLink>
       </div>
     </div>
   );
@@ -41,10 +33,15 @@ function PanelText({ panel }: { panel: InfoPanel }) {
 // up from the bottom over the About layer, while both photos drift in parallax.
 export function InfoCards() {
   const root = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLElement>(null);
 
   useGSAP(
     () => {
       const q = gsap.utils.selector(root);
+
+      // The stage rises over the page as a rounded sheet and squares off as it pins.
+      sheetArrive(stageRef.current!, root.current!);
+
       const mm = gsap.matchMedia();
 
       mm.add(
@@ -107,8 +104,9 @@ export function InfoCards() {
     // Non-sticky wrapper carries the navbar marker (sticky elements can't be measured reliably).
     <div ref={root} data-nav-theme="media" className="relative isolate z-0 h-[330vh] w-full">
       <section
+        ref={stageRef}
         aria-label="About and approach"
-        className="sticky top-0 h-svh w-full overflow-hidden bg-tiny-black text-tiny-white md:h-screen"
+        className={`sticky top-0 h-svh w-full overflow-hidden bg-tiny-black text-tiny-white md:h-screen ${SHEET_ARRIVE}`}
       >
         {INFO_PANELS.map((panel, i) => (
           <div
@@ -119,7 +117,8 @@ export function InfoCards() {
           >
             <div className="absolute inset-0 overflow-hidden">
               <div data-info-bg="" className="absolute inset-0 scale-[1.21] will-change-transform">
-                <Image src={panel.image} alt="" fill sizes="100vw" className="object-cover object-top" />
+                {/* Black and white: atmosphere on the ink stage, not portfolio colour. */}
+                <Image src={panel.image} alt="" fill sizes="100vw" className="object-cover object-top grayscale" />
               </div>
             </div>
             <PanelText panel={panel} />

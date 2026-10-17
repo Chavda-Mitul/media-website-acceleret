@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { ReactLenis, useLenis } from "lenis/react";
 import { gsap, ScrollTrigger } from "@/lib/gsap";
 
@@ -43,6 +44,23 @@ function GsapLenisBridge() {
   return null;
 }
 
+// Client navigations swap the page under a persistent Lenis instance. Re-sync it to wherever the router left
+// the window (top for a push, the restored position for back/forward), so a smooth scroll still in flight
+// can't carry the old page's target onto the new one, and re-measure the new page's triggers.
+function RouteScrollSync() {
+  const lenis = useLenis();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!lenis) return;
+    lenis.scrollTo(window.scrollY, { immediate: true, force: true });
+    lenis.resize();
+    ScrollTrigger.refresh();
+  }, [lenis, pathname]);
+
+  return null;
+}
+
 export function SmoothScrollProvider({ children }: { children: ReactNode }) {
   const reducedMotion = usePrefersReducedMotion();
 
@@ -56,6 +74,7 @@ export function SmoothScrollProvider({ children }: { children: ReactNode }) {
       }}
     >
       <GsapLenisBridge />
+      <RouteScrollSync />
       {children}
     </ReactLenis>
   );

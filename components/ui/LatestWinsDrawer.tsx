@@ -5,8 +5,6 @@ import { useEffect, useRef } from "react";
 import { useLenis } from "lenis/react";
 import { gsap } from "@/lib/gsap";
 import { NEWS } from "@/lib/content/news";
-import { LATEST_WINS_HREF } from "@/lib/navigation";
-import { BentArrow } from "@/components/ui/BentArrow";
 
 type LatestWinsDrawerProps = {
   open: boolean;
@@ -100,18 +98,6 @@ export function LatestWinsDrawer({ open, onClose }: LatestWinsDrawerProps) {
             </a>
           </article>
         ))}
-
-        <a
-          href={LATEST_WINS_HREF}
-          onClick={onClose}
-          data-wins-item=""
-          className="group mt-[6px] flex w-fit items-center gap-2 text-cap-1 leading-[1.2] tracking-tight-1 focus-visible:outline-2 focus-visible:outline-offset-2"
-        >
-          <BentArrow size="sm" />
-          <span className="relative after:absolute after:-bottom-1 after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-current after:transition-[scale] after:duration-500 after:ease-out-cubic group-hover:after:scale-x-100">
-            View all news
-          </span>
-        </a>
       </div>
     </dialog>
   );

@@ -2,13 +2,28 @@
 import { gsap } from "@/lib/gsap";
 
 export const EASE_REVEAL = "expo.out";
-export const EASE_SWAP = "expo.inOut";
 
 /** Seconds after fonts are ready before the page intro starts, on pages without the initial loader. */
 export const INTRO_DELAY = 0.15;
 
 /** Seconds after the loader hand-off before the headline rises and the nav pill slides into its corner. */
 export const PAGE_REVEAL_OFFSET = 0.26;
+
+/** Rounded top corners driven by `--arrive` (1 → 0); put it on the element `sheetArrive` animates. */
+export const SHEET_ARRIVE = "rounded-t-[calc(var(--radius-sheet)*var(--arrive,1))]";
+
+/**
+ * Chapter edge for a full-bleed section that rises over the one before it: its top corners start rounded
+ * (SHEET_ARRIVE) and square off as `trigger` scrolls from the bottom of the screen to the top.
+ * Scroll-linked rather than autonomous motion, so it also runs with reduced motion.
+ */
+export function sheetArrive(el: Element, trigger: Element) {
+  return gsap.fromTo(
+    el,
+    { "--arrive": 1 },
+    { "--arrive": 0, ease: "none", scrollTrigger: { trigger, start: "top bottom", end: "top top", scrub: true } },
+  );
+}
 
 /** Runs `cb` once webfonts are loaded, so masked reveals measure against final glyphs. */
 export function whenFontsReady(cb: () => void) {
