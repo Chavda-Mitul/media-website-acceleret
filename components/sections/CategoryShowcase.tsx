@@ -12,6 +12,8 @@ type Theme = "light" | "dark";
 const PARALLAX = 0.1;
 /** Title block under each desktop card: 18px margin + 21.6px line. */
 const TITLE_BLOCK = 40;
+/** Phones: px the strip glides sideways per px of page scroll, once it's fully in view. */
+const GLIDE = 0.5;
 
 // Text colours are inherited from the root (never set per element), so each theme is one class on the root.
 export function CategoryShowcase({ theme }: { theme: Theme }) {
@@ -89,37 +91,86 @@ export function CategoryShowcase({ theme }: { theme: Theme }) {
       };
       row.addEventListener("focusin", onFocusIn);
 
+      // Phones: once the strip is fully in view it glides sideways as the page scrolls on (smoothed), and the
+      // images drift in their frames. A swipe or keyboard glide still moves it; the scroll carries on from there.
+      const glideWithScroll = () => {
+        const setX = gsap.quickSetter(track, "x", "px");
+        const scroll = { x: 0 }; // the scroll's share of the track's x
+        let x = gsap.getProperty(track, "x") as number; // where the glide last put the track
+        let own = x; // the visitor's share, on top of the scroll's
+        const render = () => {
+          // Hands off while a swipe, throw or keyboard glide moves the track.
+          if (drag.isDragging || gsap.isTweening(track)) return;
+          // Moved by something else since the last frame? Carry on from wherever it was left.
+          const current = gsap.getProperty(track, "x") as number;
+          if (Math.abs(current - x) > 0.5) own = current - scroll.x;
+          // The ends are walls: what the scroll pushes past one is dropped, so the strip turns back at once.
+          x = gsap.utils.clamp(drag.minX, drag.maxX, scroll.x + own);
+          own = x - scroll.x;
+          setX(x);
+          parallax();
+        };
+        gsap.fromTo(
+          scroll,
+          { x: 0 },
+          {
+            // bottom bottom → bottom top is exactly one viewport of scroll.
+            x: () => -window.innerHeight * GLIDE,
+            ease: "none",
+            invalidateOnRefresh: true,
+            scrollTrigger: { trigger: track, start: "bottom bottom", end: "bottom top", scrub: 0.5 },
+            onUpdate: render,
+          },
+        );
+      };
+
       const mm = gsap.matchMedia();
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        const trigger = { trigger: root.current, start: "top 75%", toggleActions: "play none none reverse" };
-        q<HTMLElement>("[data-showcase-lines]").forEach((el, i) => {
-          SplitText.create(el, {
-            type: "lines",
-            mask: "lines",
-            autoSplit: true,
-            onSplit: (self) =>
-              gsap.from(self.lines, {
-                yPercent: 110,
-                duration: 1,
-                ease: EASE_REVEAL,
-                stagger: 0.08,
-                delay: i * 0.12,
-                force3D: true,
-                scrollTrigger: trigger,
-              }),
+      // matchMedia only runs the callback when at least one condition matches,
+      // so isMobile/isDesktop together guarantee it runs at every width.
+      mm.add(
+        {
+          isMobile: "(max-width: 767px)",
+          isDesktop: "(min-width: 768px)",
+          reduceMotion: "(prefers-reduced-motion: reduce)",
+        },
+        (ctx) => {
+          const { isMobile, reduceMotion } = ctx.conditions as { isMobile: boolean; reduceMotion: boolean };
+          if (reduceMotion) return;
+
+          const trigger = { trigger: root.current, start: "top 75%", toggleActions: "play none none reverse" };
+          q<HTMLElement>("[data-showcase-lines]").forEach((el, i) => {
+            SplitText.create(el, {
+              type: "lines",
+              mask: "lines",
+              autoSplit: true,
+              onSplit: (self) =>
+                gsap.from(self.lines, {
+                  yPercent: 110,
+                  duration: 1,
+                  ease: EASE_REVEAL,
+                  stagger: 0.08,
+                  delay: i * 0.12,
+                  force3D: true,
+                  scrollTrigger: trigger,
+                }),
+            });
           });
-        });
-        gsap.from(q("[data-showcase-card]"), {
-          autoAlpha: 0,
-          x: 80,
-          duration: 1.1,
-          ease: EASE_REVEAL,
-          stagger: 0.07,
-          delay: 0.15,
-          force3D: true,
-          scrollTrigger: trigger,
-        });
-      });
+          // On phones the strip is still below the fold when the title reveals, so its cards wait until it shows.
+          gsap.from(q("[data-showcase-card]"), {
+            autoAlpha: 0,
+            x: 80,
+            duration: 1.1,
+            ease: EASE_REVEAL,
+            stagger: 0.07,
+            delay: isMobile ? 0 : 0.15,
+            force3D: true,
+            scrollTrigger: isMobile
+              ? { trigger: track, start: "top 90%", toggleActions: "play none none reverse" }
+              : trigger,
+          });
+          if (isMobile) glideWithScroll();
+        },
+      );
 
       return () => {
         ro.disconnect();
