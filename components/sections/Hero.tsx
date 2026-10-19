@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { gsap, SplitText, useGSAP } from "@/lib/gsap";
 import { media } from "@/lib/media";
-import { EASE_REVEAL, SHEET_ARRIVE, sheetArrive } from "@/lib/motion";
+import { EASE_REVEAL, SHEET_ARRIVE, onIntroCue, sheetArrive } from "@/lib/motion";
 import { Button, PlayGlyph } from "@/components/ui/Button";
 import { ReelDialog } from "@/components/ui/ReelDialog";
 
@@ -38,15 +38,39 @@ export function Hero() {
   const taglineRef = useRef<HTMLParagraphElement>(null);
   const [reelOpen, setReelOpen] = useState(false);
 
-  // Playback is started here rather than via `autoPlay` so reduced-motion users get a still frame
-  // (React also doesn't render the `muted` attribute, which autoplay policies require).
+  // The reel only starts downloading once the intro hands the page over, so it never competes with the first
+  // screen, and it only plays (decodes) while on screen. Portrait screens get a 3:4 centre crop: object-cover only
+  // ever shows the middle of the wide frame there. Reduced motion keeps the poster as a still frame. Playback is
+  // started here rather than via `autoPlay` (React also doesn't render the `muted` attribute, which autoplay needs).
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    video.muted = true;
-    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      video.play().catch(() => {});
-    }
+    let io: IntersectionObserver | undefined;
+    const off = onIntroCue("page", () => {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      // Effects re-run (Strict Mode, back navigation): setting the same src again would restart the download.
+      if (!video.getAttribute("src")) {
+        video.src = window.matchMedia("(max-aspect-ratio: 3/4)").matches
+          ? media.heroVideo.portrait
+          : media.heroVideo.landscape;
+      }
+      video.muted = true;
+      // By ratio, not isIntersecting: at the top of the page the reel's edge touches the bottom of the screen,
+      // which counts as intersecting.
+      io = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.intersectionRatio > 0) video.play().catch(() => {});
+          else video.pause();
+        },
+        { threshold: [0, 0.01] },
+      );
+      io.observe(video);
+    });
+    return () => {
+      off();
+      io?.disconnect();
+      video.pause();
+    };
   }, []);
 
   useGSAP(
@@ -142,9 +166,10 @@ export function Hero() {
         <div ref={stageRef} className={`sticky top-0 h-screen w-full overflow-hidden bg-tiny-white ${SHEET_ARRIVE}`}>
           <div ref={panelRef} className="absolute inset-0 overflow-hidden will-change-transform">
             <div ref={mediaRef} className="absolute inset-0 will-change-transform" style={{ transform: "scale(1.2)" }}>
+              {/* src is set on the "page" intro cue (see above); the poster is its first frame. */}
               <video
                 ref={videoRef}
-                src={media.heroVideo}
+                poster={media.heroVideo.poster}
                 muted
                 loop
                 playsInline

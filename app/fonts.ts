@@ -28,19 +28,23 @@ export const newsreader = Newsreader({
   display: "swap",
 });
 
+// Captions only (spectrum, process numbers), all below the first screen: not preloaded.
 export const geistMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
   display: "swap",
+  preload: false,
 });
 
 // Footer only, as on the reference footer: 800 for the wordmark (wide round bowls, two-storey a and tall
 // ascenders: the closest free match to the reference's logo), regular for the links and small print.
-// Variable, so 800 exists.
+// Variable, so 800 exists. Not preloaded: the footer is the last thing on every page, so it mustn't compete
+// with the first screen.
 export const sora = Sora({
   subsets: ["latin"],
   variable: "--font-sora",
   display: "swap",
+  preload: false,
 });
 
 export const fontVariables = [

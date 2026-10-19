@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { preload } from "react-dom";
 import { gsap, useGSAP } from "@/lib/gsap";
+import { media } from "@/lib/media";
 import { EASE_REVEAL, onIntroCue } from "@/lib/motion";
 import { Button, PlayGlyph } from "@/components/ui/Button";
 import { MaskedWords } from "@/components/ui/MaskedWords";
@@ -10,7 +12,8 @@ import { ReelDialog } from "@/components/ui/ReelDialog";
 type Stat = { value: string; suffix?: string; label: string };
 
 type ParticleHeroProps = {
-  /** Logo in /public. Its first block of ink from the top (the mark, above any wordmark) is sampled in its own colours. */
+  /** Logo in /public. Its first block of ink from the top (the mark, above any wordmark) is sampled in its own colours.
+   * Defaults to the mark cropped out of /AM.png. */
   src?: string;
   /** Accessible name for the particle logo. */
   logoLabel?: string;
@@ -95,6 +98,18 @@ const INTRO = {
 
 /** The lit play: a glint runs left to right through the triangle, once per this long (ms). */
 const SHEEN_MS = 1400;
+
+/** Until the reel has been opened, the unlit play flashes every few seconds, so it reads as a button to press. */
+const HINT = {
+  /** First flash, after the playhead has finished its run (ms); then one every `every` ms. */
+  after: 700,
+  every: 2600,
+  /** A flash is a quick double blink: blinks `gap` ms apart, each lighting up over `attack` and dying over `decay`. */
+  blinks: 2,
+  gap: 300,
+  attack: 70,
+  decay: 150,
+};
 
 /** Scrolling away streams the mark off in the play direction, rising slightly, and fades it to `fadeTo`. */
 const STREAM = { rise: 0.25, fadeTo: 0.15 };
@@ -292,6 +307,8 @@ uniform float u_alpha;     // the whole mark (fades as the page scrolls away)
 uniform float u_play;      // 0-1: the play is lit
 uniform vec2 u_band;       // the play's left edge and width (CSS px), where the glint runs
 uniform float u_sheen;     // the glint's position across the play; below 0 lights the play evenly
+uniform float u_hint;      // 0-1: the idle hint, a flash of the unlit play
+uniform vec2 u_mid;        // the play's centre (CSS px), which the flash swells from
 uniform float u_glow;      // bleed point size in CSS px; 0 for the particle pass
 uniform float u_glowAlpha;
 
@@ -304,20 +321,24 @@ void main() {
     sin(u_time * (0.5 + fract(ph * 1.7)) + ph),
     cos(u_time * (0.4 + fract(ph * 2.3)) + ph * 1.3)
   );
+  // The idle hint's flash swells the play a little from its centre.
+  float isPlay = step(0.5, a_kind);
+  float flash = isPlay * u_hint;
   vec2 p = a_pos + drift;
+  p += (p - u_mid) * 0.05 * flash;
   vec2 clip = p / u_view * 2.0 - 1.0;
   gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
 
   // The lit play: a glint runs through the triangle (lighter, larger points) and the A steps back a little.
-  float isPlay = step(0.5, a_kind);
+  // The flash lights the whole triangle at once and blooms its ink past the edges, and leaves the A alone.
   float across = (p.x - u_band.x) / max(1.0, u_band.y);
   float band = u_sheen < 0.0 ? 1.0 : exp(-pow((across - u_sheen) * 4.0, 2.0));
-  float lift = isPlay * u_play * band;
+  float lift = max(isPlay * u_play * band, flash);
   vec3 rgb = mix(a_color.rgb, vec3(0.62, 0.86, 1.0), 0.7 * lift);
 
   float twinkle = 0.9 + 0.1 * sin(u_time * (1.0 + fract(ph * 3.1) * 1.5) + ph * 6.2832);
   float alpha = a_color.a * u_alpha * (1.0 - 0.3 * u_play * (1.0 - isPlay)) * (u_glow > 0.0 ? u_glowAlpha : twinkle);
-  gl_PointSize = (u_glow > 0.0 ? u_glow : a_seed.x * (1.0 + 0.8 * lift)) * u_scale * u_dpr;
+  gl_PointSize = (u_glow > 0.0 ? u_glow * (1.0 + 1.5 * flash) : a_seed.x * (1.0 + 0.8 * lift)) * u_scale * u_dpr;
   v_color = vec4(rgb * alpha, alpha);
   v_glow = u_glow > 0.0 ? 1.0 : 0.0;
 }`;
@@ -342,6 +363,8 @@ const UNIFORMS = [
   "u_play",
   "u_band",
   "u_sheen",
+  "u_hint",
+  "u_mid",
   "u_glow",
   "u_glowAlpha",
 ] as const;
@@ -360,6 +383,9 @@ type FrameState = {
   band: [number, number];
   /** The glint's position across the play (below 0: an even highlight). */
   sheen: number;
+  /** 0–1: the idle hint's flash, and the play's centre it swells from (CSS px). */
+  hint: number;
+  mid: [number, number];
 };
 
 type Renderer = {
@@ -415,7 +441,7 @@ function createRenderer(
   const bleedCount = Math.min(data.count, BLEED.count);
 
   return {
-    draw({ width, height, dpr, scale, time, alpha, play, band, sheen }) {
+    draw({ width, height, dpr, scale, time, alpha, play, band, sheen, hint, mid }) {
       gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.pos);
@@ -427,6 +453,8 @@ function createRenderer(
       gl.uniform1f(u.u_play, play);
       gl.uniform2f(u.u_band, band[0], band[1]);
       gl.uniform1f(u.u_sheen, sheen);
+      gl.uniform1f(u.u_hint, hint);
+      gl.uniform2f(u.u_mid, mid[0], mid[1]);
 
       // Ink bleed: soft points behind the particles.
       gl.uniform1f(u.u_glow, BLEED.size);
@@ -483,6 +511,8 @@ function mountParticleField({ canvas, stage, slot, src, reducedMotion }: FieldOp
   let playTarget = 0;
   let playGlow = 0;
   let sheenAt = 0;
+  /** The idle hint runs until the reel is first opened (and not at all with reduced motion). */
+  let hinting = !reducedMotion;
 
   let sample: LogoSample | null = null;
   let count = 0;
@@ -570,8 +600,21 @@ function mountParticleField({ canvas, stage, slot, src, reducedMotion }: FieldOp
     else if (renderer && started && !raf) render(last);
   }
 
+  // The idle hint's flash at `now`, 0–1. It starts once the playhead has finished, and gives way to the cursor's
+  // glint and to scrolling away.
+  function idleHint(now: number) {
+    const since = now - sweepAt - INTRO.sweep - HINT.after;
+    if (!hinting || since < 0) return 0;
+    let flash = 0;
+    for (let blink = 0; blink < HINT.blinks; blink++) {
+      const t = (since % HINT.every) - blink * HINT.gap;
+      if (t > 0) flash = Math.max(flash, t < HINT.attack ? t / HINT.attack : Math.exp(-(t - HINT.attack) / HINT.decay));
+    }
+    return flash * (1 - playGlow) * Math.max(0, 1 - 4 * receded);
+  }
+
   function render(now: number) {
-    const [left, , right] = sample!.play;
+    const [left, top, right, bottom] = sample!.play;
     renderer!.draw({
       width,
       height,
@@ -583,6 +626,8 @@ function mountParticleField({ canvas, stage, slot, src, reducedMotion }: FieldOp
       band: [layout.cx + left * layout.size, (right - left) * layout.size],
       // From just before the triangle's left edge to just past its point, then again.
       sheen: reducedMotion ? -1 : (((now - sheenAt) / SHEEN_MS) % 1) * 1.6 - 0.3,
+      hint: idleHint(now),
+      mid: [layout.cx + ((left + right) / 2) * layout.size, layout.cy + ((top + bottom) / 2) * layout.size],
     });
   }
 
@@ -826,6 +871,10 @@ function mountParticleField({ canvas, stage, slot, src, reducedMotion }: FieldOp
       if (on && !playTarget) sheenAt = performance.now();
       playTarget = on ? 1 : 0;
     },
+    /** Stops the idle hint for good: the reel has been opened. */
+    stopHint() {
+      hinting = false;
+    },
     /** How far the page has scrolled past the stage, 0–1. */
     recede(progress: number) {
       receded = progress;
@@ -868,13 +917,16 @@ const PLAY_AREA_STYLE: CSSProperties = {
 };
 
 export function ParticleHero({
-  src = "/AM.png",
+  src = media.particleMark,
   logoLabel = "Acceleret Media",
   heading = DEFAULT_HEADING,
   tagline = DEFAULT_TAGLINE,
   stats = DEFAULT_STATS,
   recede = false,
 }: ParticleHeroProps) {
+  // The first screen is this mark, but it's only requested once the particle effect runs: list it in the HTML
+  // head so it downloads alongside the scripts.
+  preload(src, { as: "image", fetchPriority: "high" });
   const root = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const slotRef = useRef<HTMLDivElement>(null);
@@ -884,6 +936,11 @@ export function ParticleHero({
   // Last scroll-away progress, for a field that mounts after the scroll trigger first reports.
   const receded = useRef(0);
   const [reelOpen, setReelOpen] = useState(false);
+  const openReel = () => {
+    setReelOpen(true);
+    // Found it: the play stops flashing.
+    field.current?.stopHint();
+  };
 
   // Particle field: browser-only, so it lives entirely in this effect.
   useEffect(() => {
@@ -991,7 +1048,7 @@ export function ParticleHero({
                 <Button
                   tone="ink"
                   icon={<PlayGlyph />}
-                  onClick={() => setReelOpen(true)}
+                  onClick={openReel}
                   // The play in the logo lights up with the button.
                   onPointerEnter={() => field.current?.highlight(true)}
                   onPointerLeave={() => field.current?.highlight(false)}
@@ -1028,7 +1085,7 @@ export function ParticleHero({
       {/* The logo's play triangle doubles as the reel's play button. Pointer only: "Play reel" is the accessible control. */}
       <div
         aria-hidden="true"
-        onClick={() => setReelOpen(true)}
+        onClick={openReel}
         onPointerEnter={() => field.current?.highlight(true)}
         onPointerLeave={() => field.current?.highlight(false)}
         className="absolute cursor-pointer"

@@ -26,6 +26,11 @@ export function ReelDialog({ open, onClose }: ReelDialogProps) {
     if (!dialog || !video) return;
 
     if (open) {
+      // The reel and its poster load on the first open: the dialog sits closed in the page from the start.
+      if (!video.getAttribute("src")) {
+        video.poster = media.reelPoster;
+        video.src = media.reelVideo;
+      }
       if (!dialog.open) dialog.showModal();
       if (lenis) {
         lenis.stop();
@@ -60,8 +65,6 @@ export function ReelDialog({ open, onClose }: ReelDialogProps) {
         <div ref={frameRef} className="relative aspect-video w-full max-w-[min(100%,calc((100dvh-5rem)*16/9))]">
           <video
             ref={videoRef}
-            src={media.reelVideo}
-            poster={media.reelPoster}
             controls
             playsInline
             preload="none"
